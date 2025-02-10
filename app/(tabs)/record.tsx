@@ -8,7 +8,7 @@ import {
   useAudioPlayer,
   useAudioRecorder,
 } from "expo-audio";
-import { Alert, Button, ViewStyle } from "react-native";
+import { Alert, Button, Platform, ViewStyle } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 
 // not used atm but I want to record wav 16000 mono files
@@ -34,8 +34,13 @@ export default function RecordScreen() {
   const audioRecorder = useAudioRecorder(RecordingPresets.LOW_QUALITY);
   const player = useAudioPlayer(audioRecorder.uri);
 
-  const record = () => {
+  console.log({ isRecording: audioRecorder.isRecording, uri: audioRecorder.uri });
+
+  const record = async () => {
     try {
+      if (Platform.OS === "web") {
+        await audioRecorder.prepareToRecordAsync(RecordingPresets.LOW_QUALITY);
+      }
       audioRecorder.record();
     } catch (e) {
       console.log(e);
