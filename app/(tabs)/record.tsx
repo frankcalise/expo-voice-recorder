@@ -4,14 +4,13 @@ import {
   AudioModule,
   AudioQuality,
   RecordingOptions,
-  RecordingPresets,
   useAudioPlayer,
   useAudioRecorder,
+  RecordingStatus,
 } from "expo-audio";
 import { Alert, Button, ViewStyle } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 
-// not used atm but I want to record wav 16000 mono files
 const RECORDING_OPTS: RecordingOptions = {
   extension: ".wav",
   sampleRate: 16000,
@@ -31,44 +30,70 @@ const RECORDING_OPTS: RecordingOptions = {
 };
 
 export default function RecordScreen() {
-  const audioRecorder = useAudioRecorder(RecordingPresets.LOW_QUALITY);
-  const player = useAudioPlayer(audioRecorder.uri);
+  const [recordingStatus, setRecordingStatus] = React.useState<RecordingStatus>(
+    {
+      id: 0,
+      hasError: false,
+      error: null,
+      isFinished: false,
+      url: null,
+    }
+  );
 
-  const record = () => {
+  const [recordedUri, setRecordedUri] = React.useState<string | null>(null);
+
+  const audioRecorder = useAudioRecorder(RECORDING_OPTS, setRecordingStatus);
+  const player = useAudioPlayer(recordedUri);
+
+  const handleRecord = async () => {
     try {
+      await audioRecorder.prepareToRecordAsync(RECORDING_OPTS);
       audioRecorder.record();
-    } catch (e) {
-      console.log(e);
+      setRecordingStatus((prev) => ({ ...prev, isRecording: true }));
+    } catch (error) {
+      console.error("Recording failed:", error);
     }
   };
 
-  const stopRecording = async () => {
+  const handleStopRecording = async () => {
     await audioRecorder.stop();
+    setRecordedUri(audioRecorder.uri);
+    setRecordingStatus((prev) => ({ ...prev, isRecording: false }));
   };
 
-  const play = async () => {
+  const handlePlay = () => {
     player.play();
   };
 
   React.useEffect(() => {
-    (async () => {
+    const requestMicrophonePermission = async () => {
       const status = await AudioModule.requestRecordingPermissionsAsync();
       if (!status.granted) {
         Alert.alert("Permission to access microphone was denied");
       }
-    })();
+    };
+
+    requestMicrophonePermission();
   }, []);
 
   return (
     <ThemedView style={$container}>
+      <ThemedText>{JSON.stringify(recordingStatus, null, 2)}</ThemedText>
+
       <Button
         title={audioRecorder.isRecording ? "Stop Recording" : "Start Recording"}
-        onPress={audioRecorder.isRecording ? stopRecording : record}
+        onPress={audioRecorder.isRecording ? handleStopRecording : handleRecord}
       />
 
-      <ThemedText>Recording at: {audioRecorder.uri}</ThemedText>
+      <Button
+        title="Stop Recording"
+        onPress={handleStopRecording}
+        disabled={!audioRecorder.isRecording}
+      />
 
-      <Button title="Play" onPress={play} />
+      <ThemedText>Recording at: {recordedUri}</ThemedText>
+
+      <Button title="Play" onPress={handlePlay} disabled={!recordedUri} />
     </ThemedView>
   );
 }
